@@ -63,9 +63,6 @@ class MatomoTracker {
 
   SharedPreferences? _prefs;
 
-  final _queue = Queue<MatomoEvent>();
-  late Timer _timer;
-
   String? _tokenAuth;
 
   String? get getAuthToken => _tokenAuth;
@@ -146,10 +143,6 @@ class MatomoTracker {
       'Matomo Initialized: firstVisit=$firstVisit; lastVisit=$now; visitCount=$visitCount; visitorId=$visitorId; contentBase=$contentBase; resolution=${screenResolution.width}x${screenResolution.height}; userAgent=$userAgent',
     );
     initialized = true;
-
-    _timer = Timer.periodic(Duration(seconds: dequeueInterval), (timer) {
-      _dequeue();
-    });
   }
 
   Future<String?> _getUserAgent() async {
@@ -219,12 +212,6 @@ class MatomoTracker {
       _prefs!.remove(kVisitCount);
       _prefs!.remove(kVisitorId);
     }
-  }
-
-  /// Cancel the timer which checks the queued events to send. (This will not
-  /// clear the queue.)
-  void dispose() {
-    _timer.cancel();
   }
 
   /// Iterate on the events in the queue and send them to Matomo.
@@ -422,17 +409,6 @@ class MatomoTracker {
   }
 
   void _track(MatomoEvent event) {
-    _queue.add(event);
-  }
-
-  void _dequeue() {
-    assert(initialized);
-    log.finest('Processing queue ${_queue.length}');
-    while (_queue.isNotEmpty) {
-      final event = _queue.removeFirst();
-      if (!_optout) {
-        _dispatcher.send(event);
-      }
-    }
+    _dispatcher.send(event);
   }
 }
