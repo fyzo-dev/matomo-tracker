@@ -74,6 +74,8 @@ class MatomoTracker {
 
   late int _dequeueInterval;
 
+  late bool useLogger;
+
   Future<void> initialize({
     required int siteId,
     required String url,
@@ -81,6 +83,7 @@ class MatomoTracker {
     String? contentBaseUrl,
     int dequeueInterval = 10,
     String? tokenAuth,
+    bool useLogger = true,
   }) async {
     assert(
       visitorId == null || visitorId.length == 16,
@@ -91,6 +94,7 @@ class MatomoTracker {
     _dequeueInterval = dequeueInterval;
     _lock = sync.Lock();
     _prefs = await SharedPreferences.getInstance();
+    this.useLogger = useLogger;
 
     final aVisitorId = visitorId ??
         _prefs?.getString(kVisitorId) ??
@@ -98,7 +102,12 @@ class MatomoTracker {
     _visitor = Visitor(id: aVisitorId, userId: aVisitorId);
 
     _tokenAuth = tokenAuth;
-    _dispatcher = MatomoDispatcher(url, tokenAuth, logger: log);
+
+    if (useLogger) {
+      _dispatcher = MatomoDispatcher(url, tokenAuth, logger: log);
+    } else {
+      _dispatcher = MatomoDispatcher(url, tokenAuth);
+    }
 
     // User agent
     userAgent = await _getUserAgent();
@@ -147,9 +156,11 @@ class MatomoTracker {
       unawaited(_prefs?.setBool(kOptOut, _optout));
     }
 
-    log.fine(
-      'Matomo Initialized: firstVisit=$firstVisit; lastVisit=$now; visitCount=$visitCount; visitorId=$visitorId; contentBase=$contentBase; resolution=${screenResolution.width}x${screenResolution.height}; userAgent=$userAgent',
-    );
+    if (useLogger) {
+      log.fine(
+        'Matomo Initialized: firstVisit=$firstVisit; lastVisit=$now; visitCount=$visitCount; visitorId=$visitorId; contentBase=$contentBase; resolution=${screenResolution.width}x${screenResolution.height}; userAgent=$userAgent',
+      );
+    }
     initialized = true;
 
     _timer = Timer.periodic(Duration(seconds: _dequeueInterval), (timer) {
@@ -453,7 +464,9 @@ class MatomoTracker {
 
   void _dequeue() {
     assert(initialized);
-    log.finest('Processing queue ${_queue.length}');
+    if (useLogger) {
+      log.finest('Processing queue ${_queue.length}');
+    }
     if(!_lock.locked){
       _lock.synchronized(() {
         final events = List<MatomoEvent>.from(_queue);
